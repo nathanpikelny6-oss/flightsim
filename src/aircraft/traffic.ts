@@ -123,6 +123,13 @@ export class AirTraffic {
       const next = destination(flight.lat, flight.lon, Math.sin(headingRad) * step, Math.cos(headingRad) * step);
       flight.lat = next.lat;
       flight.lon = next.lon;
+    }
+    this.place(originLat, originLon);
+  }
+
+  place(originLat: number, originLon: number): void {
+    for (const flight of this.flights) {
+      const headingRad = (flight.heading * Math.PI) / 180;
       const local = offsetMeters(originLat, originLon, flight.lat, flight.lon);
       flight.object.position.set(local.east, flight.altitude, local.north);
       flight.object.rotation.set(0, headingRad - Math.PI / 2, 0);

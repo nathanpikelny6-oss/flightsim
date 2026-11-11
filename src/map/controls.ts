@@ -34,6 +34,7 @@ export class GlobeControls {
   private velPitch = 0;
   private lastTap = 0;
   private moving = false;
+  userSteering = false;
 
   constructor(camera: PerspectiveCamera, canvas: HTMLElement, start: Place) {
     this.camera = camera;
@@ -57,6 +58,19 @@ export class GlobeControls {
     this.view.pitch = place.pitch;
     this.view.heading = place.heading;
     this.view.focusHeight = place.focusHeight ?? 0;
+    this.userSteering = true;
+    this.velEast = this.velNorth = this.velRange = this.velHeading = this.velPitch = 0;
+    this.apply();
+  }
+
+  follow(lat: number, lon: number, heading: number, altitude: number): void {
+    this.view.lat = lat;
+    this.view.lon = lon;
+    this.view.heading = heading;
+    this.view.focusHeight = altitude;
+    this.view.range = 260;
+    this.view.pitch = 76;
+    this.userSteering = false;
     this.velEast = this.velNorth = this.velRange = this.velHeading = this.velPitch = 0;
     this.apply();
   }
@@ -130,6 +144,7 @@ export class GlobeControls {
   private onPointerDown = (event: PointerEvent): void => {
     this.canvas.setPointerCapture(event.pointerId);
     this.view.focusHeight = 0;
+    this.userSteering = true;
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     this.moving = true;
     this.velEast = this.velNorth = this.velRange = this.velHeading = this.velPitch = 0;

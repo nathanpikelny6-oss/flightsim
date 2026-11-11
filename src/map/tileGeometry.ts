@@ -67,3 +67,38 @@ export function buildFlatTileGeometry(z: number, x: number, y: number, segments:
   geometry.computeBoundingSphere();
   return { geometry, centerLat, centerLon, radius: maxRadius * 1.05 };
 }
+
+export function applyElevation(
+  geometry: BufferGeometry,
+  grid: { samples: Float32Array; width: number; height: number } | null,
+  exaggeration: number,
+): void {
+  const position = geometry.getAttribute("position");
+  const uv = geometry.getAttribute("uv");
+  const skirt = geometry.getAttribute("skirt");
+  for (let i = 0; i < position.count; i += 1) {
+    const isSkirt = skirt.getX(i) > 0.5;
+    let meters = 0;
+    if (grid && !isSkirt) {
+      const u = uv.getX(i);
+      const v = uv.getY(i);
+      const x = u * (grid.width - 1);
+      const y = (1 - v) * (grid.height - 1);
+      const x0 = Math.max(0, Math.min(grid.width - 1, Math.floor(x)));
+      const y0 = Math.max(0, Math.min(grid.height - 1, Math.floor(y)));
+      const x1 = Math.min(grid.width - 1, x0 + 1);
+      const y1 = Math.min(grid.height - 1, y0 + 1);
+      const tx = x - x0;
+      const ty = y - y0;
+      const sample = (sx: number, sy: number) => grid.samples[sy * grid.width + sx] ?? 0;
+      meters =
+        sample(x0, y0) * (1 - tx) * (1 - ty) +
+        sample(x1, y0) * tx * (1 - ty) +
+        sample(x0, y1) * (1 - tx) * ty +
+        sample(x1, y1) * tx * ty;
+    }
+    position.setY(i, isSkirt ? -40 : meters * exaggeration);
+  }
+  position.needsUpdate = true;
+  geometry.computeBoundingSphere();
+}
