@@ -80,7 +80,7 @@ export class GlobeControls {
     this.pan(this.velEast * dt, this.velNorth * dt);
     this.view.range = clamp(this.view.range + this.velRange * dt, MIN_RANGE, MAX_RANGE);
     this.view.heading = (this.view.heading + this.velHeading * dt + 360) % 360;
-    this.view.pitch = clamp(this.view.pitch + this.velPitch * dt, 8, 86);
+    this.view.pitch = clamp(this.view.pitch + this.velPitch * dt, 32, 80);
     this.velEast *= damp;
     this.velNorth *= damp;
     this.velRange *= damp;
@@ -100,7 +100,7 @@ export class GlobeControls {
     this.camera.up.set(0, 1, 0);
     this.camera.position.set(-east * horiz, vert + focusHeight, -north * horiz);
     this.camera.lookAt(0, focusHeight, 0);
-    const near = clamp(range * 0.04, 0.4, 30);
+    const near = clamp(range * 0.01, 0.25, 4);
     const far = clamp(range * 60 + 8_000, 4_000, 250_000);
     if (this.camera.near !== near || this.camera.far !== far) {
       this.camera.near = near;
@@ -154,7 +154,7 @@ export class GlobeControls {
     if (this.pointers.size === 1) {
       if (event.ctrlKey || event.buttons === 2) {
         this.view.heading = (this.view.heading - dx * 0.22 + 360) % 360;
-        this.view.pitch = clamp(this.view.pitch - dy * 0.16, 8, 86);
+        this.view.pitch = clamp(this.view.pitch - dy * 0.16, 32, 80);
         this.velHeading = -dx * 4;
         this.velPitch = -dy * 3;
       } else {
@@ -232,7 +232,7 @@ export class GlobeControls {
       if (delta < -180) delta += 360;
       this.view.heading = (this.view.heading - delta + 360) % 360;
       const midY = (pts[0].y + pts[1].y) * 0.5;
-      this.view.pitch = clamp(this.view.pitch + (midY - this.lastMidY) * 0.18, 8, 86);
+      this.view.pitch = clamp(this.view.pitch + (midY - this.lastMidY) * 0.18, 32, 80);
       this.lastMidY = midY;
     }
     this.lastPinch = dist;

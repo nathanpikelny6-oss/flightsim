@@ -61,7 +61,7 @@ export class TerrainMap {
   private tileCount = 0;
 
   constructor(quality: QualityTier) {
-    this.segments = quality === "mobile" ? 32 : 48;
+    this.segments = quality === "mobile" ? 48 : 64;
     this.maxZoom = quality === "mobile" ? 16 : 17;
     this.sideCap = quality === "mobile" ? 5 : 7;
     this.flatHeight = makeRgbaTexture(128, 0, 0);
@@ -88,7 +88,6 @@ export class TerrainMap {
     const zoom = this.zoomForRange(range);
     const wanted = new Set<string>();
     this.cover(zoom, lat, lon, range, camera.aspect, camera.fov, this.sideCap, wanted);
-    this.cover(Math.max(6, zoom - 3), lat, lon, range, camera.aspect, camera.fov, 3, wanted);
     for (const key of wanted) {
       if (!this.tiles.has(key)) {
         const [z, x, y] = key.split("/").map(Number);
@@ -104,10 +103,10 @@ export class TerrainMap {
     this.tileCount = 0;
     for (const tile of this.tiles.values()) {
       const local = offsetMeters(lat, lon, tile.centerLat, tile.centerLon);
-      tile.mesh.position.set(local.east, tile.z === zoom ? 1 : 0, local.north);
+      tile.mesh.position.set(local.east, 0, local.north);
       this.sphere.center.copy(tile.mesh.position);
       this.sphere.radius = tile.radius;
-      const visible = tile.colorReady && this.frustum.intersectsSphere(this.sphere);
+      const visible = this.frustum.intersectsSphere(this.sphere);
       tile.mesh.visible = visible;
       if (visible) this.tileCount += 1;
     }

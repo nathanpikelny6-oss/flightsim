@@ -65,8 +65,8 @@ async function boot(): Promise<void> {
       name: flight.label,
       lat: flight.lat,
       lon: flight.lon,
-      range: 180,
-      pitch: 22,
+      range: 480,
+      pitch: 52,
       heading: flight.heading,
       focusHeight: flight.altitude,
     });
