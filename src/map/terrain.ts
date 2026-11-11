@@ -8,6 +8,7 @@ import {
   Sphere,
   TextureLoader,
   UnsignedByteType,
+  Vector3,
 } from "three/webgpu";
 import { applyElevation, buildFlatTileGeometry } from "./tileGeometry.ts";
 import { configureColorTexture, createTileMaterial } from "./tileMaterial.ts";
@@ -53,6 +54,7 @@ export class TerrainMap {
   private readonly frustum = new Frustum();
   private readonly projView = new Matrix4();
   private readonly sphere = new Sphere();
+  private readonly cameraForward = new Vector3();
   private readonly segments: number;
   private readonly maxZoom: number;
   private readonly sideCap: number;
@@ -103,12 +105,43 @@ export class TerrainMap {
     for (const tile of this.tiles.values()) {
       const local = offsetMeters(lat, lon, tile.centerLat, tile.centerLon);
       tile.mesh.position.set(local.east, 0, local.north);
+      this.keepTrianglesInFront(tile.mesh, camera);
       this.sphere.center.copy(tile.mesh.position);
       this.sphere.radius = tile.radius;
       const visible = this.frustum.intersectsSphere(this.sphere);
       tile.mesh.visible = visible;
       if (visible) this.tileCount += 1;
     }
+  }
+
+  private keepTrianglesInFront(mesh: Mesh, camera: PerspectiveCamera, margin = 8): void {
+    const rest = mesh.geometry.getAttribute("rest");
+    const position = mesh.geometry.getAttribute("position");
+    if (!rest || !position) return;
+    camera.getWorldDirection(this.cameraForward);
+    const length = Math.hypot(this.cameraForward.x, this.cameraForward.z);
+    const forwardX = this.cameraForward.x / (length || 1);
+    const forwardZ = this.cameraForward.z / (length || 1);
+    const cameraX = camera.position.x;
+    const cameraZ = camera.position.z;
+    const originX = mesh.position.x;
+    const originZ = mesh.position.z;
+    for (let i = 0; i < position.count; i += 1) {
+      const baseX = rest.getX(i);
+      const baseZ = rest.getZ(i);
+      const ahead =
+        (originX + baseX - cameraX) * forwardX +
+        (originZ + baseZ - cameraZ) * forwardZ;
+      if (ahead < margin) {
+        const push = margin - ahead;
+        position.setX(i, baseX + forwardX * push);
+        position.setZ(i, baseZ + forwardZ * push);
+      } else {
+        position.setX(i, baseX);
+        position.setZ(i, baseZ);
+      }
+    }
+    position.needsUpdate = true;
   }
 
   private zoomForRange(range: number): number {
