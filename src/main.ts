@@ -60,16 +60,7 @@ async function boot(): Promise<void> {
   const menu = mountMenu(menuRoot, traffic.catalog(), (id) => {
     const flight = traffic.spawn(id, controls.view.lat, controls.view.lon, controls.view.heading);
     if (!flight) return;
-    controls.flyTo({
-      id: "spawn",
-      name: flight.label,
-      lat: flight.lat,
-      lon: flight.lon,
-      range: 480,
-      pitch: 52,
-      heading: flight.heading,
-      focusHeight: flight.altitude,
-    });
+    controls.follow(flight.lat, flight.lon, flight.heading, flight.altitude);
     menu.hide();
   });
 
@@ -116,12 +107,16 @@ async function boot(): Promise<void> {
     }
 
     controls.update(dt);
-    const { lat, lon, range } = controls.view;
-    terrain.update(camera, lat, lon, range);
-    traffic.update(dt, lat, lon);
+    traffic.update(dt, controls.view.lat, controls.view.lon);
+    const chased = traffic.latest();
+    if (chased && !controls.userSteering) {
+      controls.follow(chased.lat, chased.lon, chased.heading, chased.altitude);
+      traffic.place(controls.view.lat, controls.view.lon);
+    }
+    terrain.update(camera, controls.view.lat, controls.view.lon, controls.view.range);
     const fog = scene.fog as Fog;
-    fog.near = Math.max(2_000, range * 4);
-    fog.far = Math.max(fog.near + 4_000, range * 30);
+    fog.near = Math.max(2_000, controls.view.range * 4);
+    fog.far = Math.max(fog.near + 4_000, controls.view.range * 30);
     hud.update(controls.view, { fps, backend, tiles: terrain.getStats().tiles });
     renderer.render(scene, camera);
     requestAnimationFrame(frame);

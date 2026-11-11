@@ -9,10 +9,9 @@ import {
   TextureLoader,
   UnsignedByteType,
 } from "three/webgpu";
-import { uniform } from "three/tsl";
-import { buildFlatTileGeometry } from "./tileGeometry.ts";
-import { configureColorTexture, configureHeightTexture, createTileMaterial } from "./tileMaterial.ts";
-import { fetchElevationTexture } from "./elevation.ts";
+import { applyElevation, buildFlatTileGeometry } from "./tileGeometry.ts";
+import { configureColorTexture, createTileMaterial } from "./tileMaterial.ts";
+import { fetchElevation, type ElevationGrid } from "./elevation.ts";
 import { latToTileY, lonToTileX, offsetMeters, tileGroundSizeMeters } from "./wgs84.ts";
 import type { PerspectiveCamera } from "three/webgpu";
 
@@ -30,7 +29,7 @@ type TileNode = {
   centerLat: number;
   centerLon: number;
   radius: number;
-  colorReady: boolean;
+  elevation: ElevationGrid | null;
 };
 
 function tileKey(z: number, x: number, y: number): string {
@@ -46,9 +45,8 @@ function makeRgbaTexture(r: number, g: number, b: number): DataTexture {
 
 export class TerrainMap {
   readonly group = new Group();
-  readonly exaggeration = uniform(1.1);
+  private exaggeration = 1.1;
   private readonly loader = new TextureLoader();
-  private readonly flatHeight: DataTexture;
   private readonly placeholderColor: DataTexture;
   private readonly tiles = new Map<string, TileNode>();
   private readonly inflight = new Set<string>();
@@ -64,15 +62,16 @@ export class TerrainMap {
     this.segments = quality === "mobile" ? 48 : 64;
     this.maxZoom = quality === "mobile" ? 16 : 17;
     this.sideCap = quality === "mobile" ? 5 : 7;
-    this.flatHeight = makeRgbaTexture(128, 0, 0);
-    configureHeightTexture(this.flatHeight);
     this.placeholderColor = makeRgbaTexture(92, 124, 92);
     configureColorTexture(this.placeholderColor);
     this.loader.setCrossOrigin("anonymous");
   }
 
   setExaggeration(value: number): void {
-    this.exaggeration.value = value;
+    this.exaggeration = value;
+    for (const tile of this.tiles.values()) {
+      applyElevation(tile.mesh.geometry, tile.elevation, this.exaggeration);
+    }
   }
 
   getStats(): { tiles: number } {
@@ -145,7 +144,7 @@ export class TerrainMap {
 
   private createNode(z: number, x: number, y: number): TileNode {
     const { geometry, centerLat, centerLon, radius } = buildFlatTileGeometry(z, x, y, this.segments);
-    const material = createTileMaterial(this.placeholderColor, this.flatHeight, this.exaggeration);
+    const material = createTileMaterial(this.placeholderColor);
     const mesh = new Mesh(geometry, material);
     mesh.frustumCulled = false;
     mesh.visible = false;
@@ -159,7 +158,7 @@ export class TerrainMap {
       centerLat,
       centerLon,
       radius,
-      colorReady: false,
+      elevation: null,
     };
     void this.loadTextures(node);
     return node;
@@ -169,23 +168,22 @@ export class TerrainMap {
     if (this.inflight.has(node.key)) return;
     this.inflight.add(node.key);
     try {
-      const [color, height] = await Promise.all([
+      const [color, elevation] = await Promise.all([
         this.loader.loadAsync(`${IMAGERY_URL}/${node.z}/${node.y}/${node.x}`),
-        fetchElevationTexture(node.z, node.x, node.y).catch(() => this.flatHeight),
+        fetchElevation(node.z, node.x, node.y).catch(() => null),
       ]);
       if (!this.tiles.has(node.key)) {
         color.dispose();
-        if (height !== this.flatHeight) height.dispose();
         return;
       }
       configureColorTexture(color);
-      if (height !== this.flatHeight) configureHeightTexture(height);
       const previous = node.mesh.material as ReturnType<typeof createTileMaterial>;
-      node.mesh.material = createTileMaterial(color, height, this.exaggeration);
+      node.mesh.material = createTileMaterial(color);
       previous.dispose();
-      node.colorReady = true;
+      node.elevation = elevation;
+      applyElevation(node.mesh.geometry, elevation, this.exaggeration);
     } catch {
-      node.colorReady = false;
+      node.mesh.visible = false;
     } finally {
       this.inflight.delete(node.key);
     }

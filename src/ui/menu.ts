@@ -9,7 +9,7 @@ export function mountMenu(
     <div class="menu-card">
       <p class="menu-kicker">Flight</p>
       <h1>Choose an airplane</h1>
-      <p class="menu-copy">It spawns ahead of the camera at 280 m and starts flying. Airports come next.</p>
+      <p class="menu-copy">It spawns at 280 m and the camera follows behind the tail. Drag the map if you want to look around.</p>
       <div class="menu-grid" id="aircraft-choices"></div>
     </div>
   `;
