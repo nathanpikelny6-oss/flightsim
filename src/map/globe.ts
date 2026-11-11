@@ -13,6 +13,7 @@ import {
 import { uniform } from "three/tsl";
 import { buildTileGeometry } from "./tileGeometry.ts";
 import { configureColorTexture, configureHeightTexture, createTileMaterial } from "./tileMaterial.ts";
+import { fetchElevationTexture } from "./elevation.ts";
 import { tileGroundSizeMeters, tileYToLat } from "./wgs84.ts";
 import type { PerspectiveCamera } from "three/webgpu";
 
@@ -133,7 +134,7 @@ export class GlobeMap {
     try {
       const [color, height] = await Promise.all([
         this.loader.loadAsync(`${IMAGERY_URL}/${node.z}/${node.y}/${node.x}`),
-        this.loader.loadAsync(`/tiles/terrain/${node.z}/${node.x}/${node.y}`).catch(() => this.flatHeight),
+        fetchElevationTexture(node.z, node.x, node.y).catch(() => this.flatHeight),
       ]);
       configureColorTexture(color);
       if (height !== this.flatHeight) configureHeightTexture(height);

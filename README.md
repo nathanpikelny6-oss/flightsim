@@ -10,6 +10,12 @@ Mobile-first 3D globe for a browser flight sim. This first slice is the map: Web
 - Esri World Imagery color tiles
 - Same-origin terrain proxy for CORS (`/tiles/terrain/{z}/{x}/{y}`)
 
+## Hosting
+
+GitHub Pages can serve the built site. Elevation now comes from Esri's terrain service, which allows browser requests, so no tile proxy is required. Pushing `main` runs `.github/workflows/pages.yml`.
+
+In the repo on GitHub, open Settings, then Pages, and set the source to GitHub Actions. The site is published at `https://nathanpikelny6-oss.github.io/flightsim/`. Moving to your own domain later is an upload of the same `dist` folder, or a DNS record pointed at whatever host you choose. Use `npm run build` without `GITHUB_PAGES` so asset paths stay at the domain root.
+
 ## Local
 
 ```bash

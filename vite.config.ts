@@ -54,7 +54,10 @@ function terrainProxy(): Plugin {
   };
 }
 
+const githubPages = process.env.GITHUB_PAGES === "true";
+
 export default defineConfig({
+  base: githubPages ? "/flightsim/" : "/",
   plugins: [terrainProxy()],
   server: {
     host: true,
