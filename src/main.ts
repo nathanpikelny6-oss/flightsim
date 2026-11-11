@@ -115,8 +115,8 @@ async function boot(): Promise<void> {
     }
     terrain.update(camera, controls.view.lat, controls.view.lon, controls.view.range);
     const fog = scene.fog as Fog;
-    fog.near = Math.max(2_000, controls.view.range * 4);
-    fog.far = Math.max(fog.near + 4_000, controls.view.range * 30);
+    fog.near = 700;
+    fog.far = 4200;
     hud.update(controls.view, { fps, backend, tiles: terrain.getStats().tiles });
     renderer.render(scene, camera);
     requestAnimationFrame(frame);

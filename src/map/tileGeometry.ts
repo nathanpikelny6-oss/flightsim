@@ -97,7 +97,7 @@ export function applyElevation(
         sample(x0, y1) * (1 - tx) * ty +
         sample(x1, y1) * tx * ty;
     }
-    position.setY(i, isSkirt ? -40 : meters * exaggeration);
+    position.setY(i, meters * exaggeration);
   }
   position.needsUpdate = true;
   geometry.computeBoundingSphere();
