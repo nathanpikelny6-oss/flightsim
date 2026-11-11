@@ -2,10 +2,8 @@ import { PerspectiveCamera, Vector3 } from "three/webgpu";
 import {
   clamp,
   destination,
-  eastVector,
   geodeticToEcef,
   MAX_MERCATOR_LAT,
-  northVector,
 } from "./wgs84.ts";
 import type { Place } from "./places.ts";
 
@@ -18,8 +16,8 @@ export type GlobeView = {
   focusHeight: number;
 };
 
-const MIN_RANGE = 400;
-const MAX_RANGE = 18_000_000;
+const MIN_RANGE = 40;
+const MAX_RANGE = 40_000;
 
 export class GlobeControls {
   view: GlobeView;
@@ -92,35 +90,18 @@ export class GlobeControls {
   }
 
   apply(): void {
-    const { lat, lon, range, pitch, heading, focusHeight } = this.view;
-    const origin = geodeticToEcef(lat, lon, 0);
-    const east = eastVector(lon);
-    const north = northVector(lat, lon);
-    const up = {
-      x: origin.x / Math.hypot(origin.x, origin.y, origin.z),
-      y: origin.y / Math.hypot(origin.x, origin.y, origin.z),
-      z: origin.z / Math.hypot(origin.x, origin.y, origin.z),
-    };
+    const { range, pitch, heading, focusHeight } = this.view;
     const headingRad = (heading * Math.PI) / 180;
     const pitchRad = (pitch * Math.PI) / 180;
-    const lookEast = Math.sin(headingRad);
-    const lookNorth = Math.cos(headingRad);
-    const forward = {
-      x: east.x * lookEast + north.x * lookNorth,
-      y: east.y * lookEast + north.y * lookNorth,
-      z: east.z * lookEast + north.z * lookNorth,
-    };
     const horiz = Math.sin(pitchRad) * range;
     const vert = Math.cos(pitchRad) * range;
-    this.camera.position.set(
-      -forward.x * horiz + up.x * (vert + focusHeight),
-      -forward.y * horiz + up.y * (vert + focusHeight),
-      -forward.z * horiz + up.z * (vert + focusHeight),
-    );
-    this.camera.up.set(up.x, up.y, up.z);
-    this.camera.lookAt(up.x * focusHeight, up.y * focusHeight, up.z * focusHeight);
-    const near = clamp(range * 0.02, 2, 40_000);
-    const far = clamp(range * 24 + 8_000_000, 200_000, 80_000_000);
+    const east = Math.sin(headingRad);
+    const north = Math.cos(headingRad);
+    this.camera.up.set(0, 1, 0);
+    this.camera.position.set(-east * horiz, vert + focusHeight, -north * horiz);
+    this.camera.lookAt(0, focusHeight, 0);
+    const near = clamp(range * 0.04, 0.4, 30);
+    const far = clamp(range * 60 + 8_000, 4_000, 250_000);
     if (this.camera.near !== near || this.camera.far !== far) {
       this.camera.near = near;
       this.camera.far = far;

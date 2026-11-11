@@ -8,30 +8,33 @@ import {
   Vector3,
 } from "three/webgpu";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { destination, eastVector, geodeticToEcef, northVector } from "../map/wgs84.ts";
+import { destination, offsetMeters } from "../map/wgs84.ts";
 
-type AircraftSpec = {
+export type AircraftChoice = {
   id: string;
   label: string;
+  detail: string;
+};
+
+type AircraftSpec = AircraftChoice & {
   file: string;
   length: number;
   nose: "x" | "y" | "z";
   up: "x" | "y" | "z";
-  altitude: number;
   speed: number;
 };
 
 const SPECS: AircraftSpec[] = [
-  { id: "B737", label: "737", file: "B737_nologo.glb", length: 39.5, nose: "x", up: "y", altitude: 10600, speed: 230 },
-  { id: "A320", label: "A320", file: "A320_nologo.glb", length: 37.6, nose: "y", up: "z", altitude: 10400, speed: 230 },
-  { id: "B787", label: "787", file: "B787_nologo.glb", length: 56.7, nose: "z", up: "y", altitude: 11800, speed: 250 },
-  { id: "A350", label: "A350", file: "A350_nologo.glb", length: 66.8, nose: "x", up: "z", altitude: 12000, speed: 250 },
-  { id: "A380", label: "A380", file: "A380_nologo.glb", length: 72.7, nose: "y", up: "z", altitude: 11900, speed: 250 },
+  { id: "B737", label: "737", detail: "Narrow-body twinjet", file: "B737_nologo.glb", length: 39.5, nose: "x", up: "y", speed: 120 },
+  { id: "A320", label: "A320", detail: "Narrow-body twinjet", file: "A320_nologo.glb", length: 37.6, nose: "y", up: "z", speed: 120 },
+  { id: "B787", label: "787", detail: "Long-haul twinjet", file: "B787_nologo.glb", length: 56.7, nose: "z", up: "y", speed: 140 },
+  { id: "A350", label: "A350", detail: "Long-haul twinjet", file: "A350_nologo.glb", length: 66.8, nose: "x", up: "z", speed: 140 },
+  { id: "A380", label: "A380", detail: "Double-deck quadjet", file: "A380_nologo.glb", length: 72.7, nose: "y", up: "z", speed: 145 },
 ];
 
-type Flight = {
-  spec: AircraftSpec;
-  object: Object3D;
+export type SpawnedFlight = {
+  id: string;
+  label: string;
   lat: number;
   lon: number;
   heading: number;
@@ -44,39 +47,32 @@ const AXIS: Record<"x" | "y" | "z", Vector3> = {
   z: new Vector3(0, 0, 1),
 };
 
-const ROUTES: Array<{ spec: string; lat: number; lon: number; heading: number }> = [
-  { spec: "B737", lat: 46.2, lon: 7.4, heading: 70 },
-  { spec: "A320", lat: 45.6, lon: 6.4, heading: 250 },
-  { spec: "B787", lat: 36.3, lon: -112.4, heading: 120 },
-  { spec: "A350", lat: 37.9, lon: -122.6, heading: 300 },
-  { spec: "A380", lat: 20.9, lon: -156.6, heading: 40 },
-  { spec: "B737", lat: 64.2, lon: -17.4, heading: 200 },
-  { spec: "A320", lat: 51.4, lon: -0.5, heading: 90 },
-  { spec: "B787", lat: 35.6, lon: 139.7, heading: 160 },
-];
+type Flight = SpawnedFlight & {
+  spec: AircraftSpec;
+  object: Object3D;
+};
 
 export class AirTraffic {
   readonly group = new Group();
   readonly lights: Object3D[] = [];
+  private readonly templates = new Map<string, Object3D>();
   private readonly flights: Flight[] = [];
-  private readonly right = new Vector3();
-  private readonly up = new Vector3();
-  private readonly forward = new Vector3();
-  private readonly basis = new Matrix4();
   private readonly box = new Box3();
   private readonly boxSize = new Vector3();
-  ready = false;
 
   constructor() {
-    const ambient = new AmbientLight("#d7e6ff", 0.7);
-    const sun = new DirectionalLight("#fff4e0", 2.4);
-    sun.position.set(180_000, 320_000, 90_000);
+    const ambient = new AmbientLight("#f4f7fb", 0.85);
+    const sun = new DirectionalLight("#fff6e8", 2.1);
+    sun.position.set(400, 900, 200);
     this.lights.push(ambient, sun);
+  }
+
+  catalog(): AircraftChoice[] {
+    return SPECS.map(({ id, label, detail }) => ({ id, label, detail }));
   }
 
   async load(): Promise<void> {
     const loader = new GLTFLoader();
-    const templates = new Map<string, Object3D>();
     await Promise.all(SPECS.map(async (spec) => {
       const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}aircraft/${spec.file}`);
       const mesh = gltf.scene;
@@ -86,72 +82,51 @@ export class AirTraffic {
       const right = new Vector3().crossVectors(nose, up).normalize();
       mesh.quaternion.setFromRotationMatrix(new Matrix4().makeBasis(nose, up, right));
       mesh.scale.setScalar(spec.length / measured);
-      mesh.updateMatrix();
       const holder = new Group();
       holder.add(mesh);
-      templates.set(spec.id, holder);
+      this.templates.set(spec.id, holder);
     }));
-
-    for (const route of ROUTES) {
-      const spec = SPECS.find((item) => item.id === route.spec);
-      const template = templates.get(route.spec);
-      if (!spec || !template) continue;
-      const object = template.clone(true);
-      this.group.add(object);
-      this.flights.push({
-        spec,
-        object,
-        lat: route.lat,
-        lon: route.lon,
-        heading: route.heading,
-        altitude: spec.altitude,
-      });
-    }
-    this.ready = true;
   }
 
-  nearest(lat: number, lon: number): Flight | null {
-    let best: Flight | null = null;
-    let bestScore = Infinity;
-    for (const flight of this.flights) {
-      const score = (flight.lat - lat) ** 2 + (flight.lon - lon) ** 2;
-      if (score < bestScore) {
-        best = flight;
-        bestScore = score;
-      }
+  spawn(id: string, lat: number, lon: number, heading: number): SpawnedFlight | null {
+    const spec = SPECS.find((item) => item.id === id);
+    const template = this.templates.get(id);
+    if (!spec || !template) return null;
+    if (this.flights.length >= 6) {
+      const oldest = this.flights.shift();
+      if (oldest) this.group.remove(oldest.object);
     }
-    return best;
+    const object = template.clone(true);
+    this.group.add(object);
+    const flight: Flight = {
+      id: spec.id,
+      label: spec.label,
+      spec,
+      object,
+      lat,
+      lon,
+      heading,
+      altitude: 280,
+    };
+    this.flights.push(flight);
+    return flight;
   }
 
-  update(dt: number, origin: Vector3): void {
+  latest(): SpawnedFlight | null {
+    return this.flights[this.flights.length - 1] ?? null;
+  }
+
+  update(dt: number, originLat: number, originLon: number): void {
     for (const flight of this.flights) {
       const step = flight.spec.speed * dt;
       const headingRad = (flight.heading * Math.PI) / 180;
       const next = destination(flight.lat, flight.lon, Math.sin(headingRad) * step, Math.cos(headingRad) * step);
       flight.lat = next.lat;
       flight.lon = next.lon;
-      this.place(flight, origin);
+      const local = offsetMeters(originLat, originLon, flight.lat, flight.lon);
+      flight.object.position.set(local.east, flight.altitude, local.north);
+      flight.object.rotation.set(0, headingRad - Math.PI / 2, 0);
     }
-  }
-
-  private place(flight: Flight, origin: Vector3): void {
-    const ecef = geodeticToEcef(flight.lat, flight.lon, flight.altitude);
-    flight.object.position.set(ecef.x - origin.x, ecef.y - origin.y, ecef.z - origin.z);
-    const east = eastVector(flight.lon);
-    const north = northVector(flight.lat, flight.lon);
-    const normal = geodeticToEcef(flight.lat, flight.lon, 0);
-    const normalLen = Math.hypot(normal.x, normal.y, normal.z);
-    this.up.set(normal.x / normalLen, normal.y / normalLen, normal.z / normalLen);
-    const headingRad = (flight.heading * Math.PI) / 180;
-    this.forward.set(
-      east.x * Math.sin(headingRad) + north.x * Math.cos(headingRad),
-      east.y * Math.sin(headingRad) + north.y * Math.cos(headingRad),
-      east.z * Math.sin(headingRad) + north.z * Math.cos(headingRad),
-    );
-    this.right.crossVectors(this.forward, this.up).normalize();
-    this.forward.crossVectors(this.up, this.right).normalize();
-    this.basis.makeBasis(this.forward, this.up, this.right);
-    flight.object.quaternion.setFromRotationMatrix(this.basis);
   }
 
   private axisLength(object: Object3D, axis: "x" | "y" | "z"): number {

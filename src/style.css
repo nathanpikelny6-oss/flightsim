@@ -1,7 +1,7 @@
 :root {
   color: #e7f3ff;
   font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  background: #02040a;
+  background: #8eb4d0;
 }
 
 * {
@@ -15,7 +15,7 @@ body {
   height: 100%;
   overflow: hidden;
   touch-action: none;
-  background: #02040a;
+  background: #8eb4d0;
 }
 
 #globe {
@@ -186,6 +186,71 @@ body {
 .splash-card p {
   margin: 0;
   color: #9ec2dd;
+}
+
+#menu {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: rgba(4, 12, 20, 0.72);
+}
+
+#menu.hidden {
+  display: none;
+}
+
+.menu-card {
+  width: min(560px, 100%);
+  padding: 22px 18px 18px;
+  border-radius: 20px;
+  background: #071018;
+  border: 1px solid rgba(140, 190, 230, 0.22);
+}
+
+.menu-kicker {
+  margin: 0;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: #8fd8b8;
+}
+
+.menu-card h1 {
+  margin: 6px 0 8px;
+  font-size: 28px;
+}
+
+.menu-copy {
+  margin: 0 0 16px;
+  color: #9ec2dd;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.aircraft-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 76px;
+  padding: 14px;
+  border-radius: 16px;
+  color: #e7f3ff;
+  background: #102033;
+  border: 1px solid rgba(140, 190, 230, 0.22);
+  text-align: left;
+}
+
+.aircraft-choice span {
+  color: #9ec2dd;
+  font-size: 13px;
 }
 
 @media (min-width: 860px) {

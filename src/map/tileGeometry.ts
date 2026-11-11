@@ -3,11 +3,12 @@ import {
   Float32BufferAttribute,
   Uint32BufferAttribute,
 } from "three/webgpu";
-import { geodeticNormal, geodeticToEcef, tileXToLon, tileYToLat } from "./wgs84.ts";
+import { offsetMeters, tileXToLon, tileYToLat } from "./wgs84.ts";
 
-export function buildTileGeometry(z: number, x: number, y: number, segments: number): {
+export function buildFlatTileGeometry(z: number, x: number, y: number, segments: number): {
   geometry: BufferGeometry;
-  center: { x: number; y: number; z: number };
+  centerLat: number;
+  centerLon: number;
   radius: number;
 } {
   const dim = segments + 3;
@@ -16,10 +17,8 @@ export function buildTileGeometry(z: number, x: number, y: number, segments: num
   const normals = new Float32Array(vertexCount * 3);
   const uvs = new Float32Array(vertexCount * 2);
   const skirts = new Float32Array(vertexCount);
-
   const centerLat = tileYToLat(y + 0.5, z);
   const centerLon = tileXToLon(x + 0.5, z);
-  const center = geodeticToEcef(centerLat, centerLon, 0);
   let maxRadius = 0;
 
   for (let row = 0; row < dim; row += 1) {
@@ -29,28 +28,20 @@ export function buildTileGeometry(z: number, x: number, y: number, segments: num
       const v = Math.min(1, Math.max(0, (row - 1) / segments));
       const lon = tileXToLon(x + u, z);
       const lat = tileYToLat(y + v, z);
-      const ecef = geodeticToEcef(lat, lon, 0);
-      const normal = geodeticNormal(lat, lon);
+      const local = offsetMeters(centerLat, centerLon, lat, lon);
       const index = row * dim + col;
-      const dx = ecef.x - center.x;
-      const dy = ecef.y - center.y;
-      const dz = ecef.z - center.z;
-      positions[index * 3] = dx;
-      positions[index * 3 + 1] = dy;
-      positions[index * 3 + 2] = dz;
-      normals[index * 3] = normal.x;
-      normals[index * 3 + 1] = normal.y;
-      normals[index * 3 + 2] = normal.z;
+      positions[index * 3] = local.east;
+      positions[index * 3 + 1] = 0;
+      positions[index * 3 + 2] = local.north;
+      normals[index * 3 + 1] = 1;
       uvs[index * 2] = u;
       uvs[index * 2 + 1] = 1 - v;
       skirts[index] = isSkirt ? 1 : 0;
-      const radius = Math.hypot(dx, dy, dz);
-      if (radius > maxRadius) maxRadius = radius;
+      maxRadius = Math.max(maxRadius, Math.hypot(local.east, local.north));
     }
   }
 
-  const indexCount = (dim - 1) * (dim - 1) * 6;
-  const indices = new Uint32Array(indexCount);
+  const indices = new Uint32Array((dim - 1) * (dim - 1) * 6);
   let cursor = 0;
   for (let row = 0; row < dim - 1; row += 1) {
     for (let col = 0; col < dim - 1; col += 1) {
@@ -74,6 +65,5 @@ export function buildTileGeometry(z: number, x: number, y: number, segments: num
   geometry.setAttribute("skirt", new Float32BufferAttribute(skirts, 1));
   geometry.setIndex(new Uint32BufferAttribute(indices, 1));
   geometry.computeBoundingSphere();
-
-  return { geometry, center, radius: maxRadius * 1.15 };
+  return { geometry, centerLat, centerLon, radius: maxRadius * 1.05 };
 }

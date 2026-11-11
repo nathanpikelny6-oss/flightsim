@@ -5,7 +5,7 @@ export type HudApi = {
   setPlace: (place: Place) => void;
   setExaggeration: (value: number) => void;
   locate: () => void;
-  watchTraffic: () => void;
+  openMenu: () => void;
 };
 
 function formatCoord(lat: number, lon: number): string {
@@ -43,10 +43,10 @@ export function mountHud(root: HTMLElement, api: HudApi): {
       <div class="tools">
         <label class="relief">
           Relief
-          <input id="exag" type="range" min="0.4" max="3.2" step="0.1" value="1.7" />
+          <input id="exag" type="range" min="0.6" max="2.2" step="0.1" value="1.1" />
         </label>
         <button type="button" id="locate" class="locate">My location</button>
-        <button type="button" id="watch" class="locate">Watch traffic</button>
+        <button type="button" id="aircraft" class="locate">Aircraft</button>
       </div>
       <p class="hint">Drag to pan · pinch to zoom · two-finger twist to turn</p>
       <p class="credit">Aircraft meshes by amvlab, CC BY 4.0. Not Boeing or Airbus products.</p>
@@ -65,7 +65,7 @@ export function mountHud(root: HTMLElement, api: HudApi): {
   const exag = root.querySelector("#exag") as HTMLInputElement;
   exag.addEventListener("input", () => api.setExaggeration(Number(exag.value)));
   root.querySelector("#locate")?.addEventListener("click", () => api.locate());
-  root.querySelector("#watch")?.addEventListener("click", () => api.watchTraffic());
+  root.querySelector("#aircraft")?.addEventListener("click", () => api.openMenu());
 
   const coords = root.querySelector("#coords") as HTMLElement;
   const alt = root.querySelector("#alt") as HTMLElement;

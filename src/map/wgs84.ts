@@ -115,6 +115,26 @@ export function northVector(latDeg: number, lonDeg: number): {
   };
 }
 
+export function metersPerDegree(latDeg: number): { lat: number; lon: number } {
+  return {
+    lat: 111132.954 - 559.822 * Math.cos(2 * degToRad(latDeg)),
+    lon: (Math.PI / 180) * WGS84_A * Math.cos(degToRad(latDeg)),
+  };
+}
+
+export function offsetMeters(
+  originLat: number,
+  originLon: number,
+  lat: number,
+  lon: number,
+): { east: number; north: number } {
+  const scale = metersPerDegree(originLat);
+  return {
+    east: (lon - originLon) * scale.lon,
+    north: (lat - originLat) * scale.lat,
+  };
+}
+
 export function tileGroundSizeMeters(latDeg: number, z: number): number {
   const cos = Math.max(0.08, Math.cos(degToRad(latDeg)));
   return (Math.cos(0) * 2 * Math.PI * WGS84_A * cos) / 2 ** z;

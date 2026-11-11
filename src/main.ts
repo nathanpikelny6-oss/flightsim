@@ -2,22 +2,23 @@ import "./style.css";
 import {
   ACESFilmicToneMapping,
   Color,
+  Fog,
   PerspectiveCamera,
   Scene,
-  Vector3,
   WebGPURenderer,
 } from "three/webgpu";
-import { GlobeMap } from "./map/globe.ts";
+import { TerrainMap } from "./map/terrain.ts";
 import { GlobeControls } from "./map/controls.ts";
-import { createAtmosphere, createStarfield } from "./map/atmosphere.ts";
 import { DEFAULT_PLACE } from "./map/places.ts";
 import { mountHud } from "./ui/hud.ts";
+import { mountMenu } from "./ui/menu.ts";
 import { AirTraffic } from "./aircraft/traffic.ts";
 
 const canvas = document.querySelector("#globe") as HTMLCanvasElement;
 const overlay = document.querySelector("#hud") as HTMLElement;
 const splash = document.querySelector("#splash") as HTMLElement;
 const splashStatus = document.querySelector("#splash-status") as HTMLElement;
+const menuRoot = document.querySelector("#menu") as HTMLElement;
 
 const isMobile = window.matchMedia("(pointer: coarse), (max-width: 820px)").matches;
 const quality = isMobile ? "mobile" : "desktop";
@@ -27,15 +28,14 @@ async function boot(): Promise<void> {
 
   const renderer = new WebGPURenderer({
     canvas,
-    antialias: !isMobile,
+    antialias: true,
     alpha: false,
     powerPreference: "high-performance",
-    logarithmicDepthBuffer: true,
   });
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
-  renderer.setClearColor(new Color("#02040a"));
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.45 : 2));
+  renderer.setClearColor(new Color("#8eb4d0"));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 2 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight, false);
 
   await renderer.init();
@@ -44,36 +44,38 @@ async function boot(): Promise<void> {
     (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend,
   );
   const backend = usingWebGPU ? "WebGPU" : "WebGL2 fallback";
-  splashStatus.textContent = `Renderer: ${backend}`;
+  splashStatus.textContent = "Loading aircraft…";
 
   const scene = new Scene();
-  const camera = new PerspectiveCamera(isMobile ? 62 : 55, window.innerWidth / window.innerHeight, 20, 40_000_000);
-  const globe = new GlobeMap(quality);
-  const atmosphere = createAtmosphere();
-  const stars = createStarfield();
+  scene.background = new Color("#8eb4d0");
+  scene.fog = new Fog("#8eb4d0", 12_000, 80_000);
+  const camera = new PerspectiveCamera(isMobile ? 58 : 50, window.innerWidth / window.innerHeight, 1, 80_000);
+  const terrain = new TerrainMap(quality);
   const traffic = new AirTraffic();
-  scene.add(stars, atmosphere, globe.group, traffic.group, ...traffic.lights);
+  scene.add(terrain.group, traffic.group, ...traffic.lights);
 
   const controls = new GlobeControls(camera, canvas, DEFAULT_PLACE);
-  const origin = new Vector3();
+  await traffic.load();
+
+  const menu = mountMenu(menuRoot, traffic.catalog(), (id) => {
+    const flight = traffic.spawn(id, controls.view.lat, controls.view.lon, controls.view.heading);
+    if (!flight) return;
+    controls.flyTo({
+      id: "spawn",
+      name: flight.label,
+      lat: flight.lat,
+      lon: flight.lon,
+      range: 180,
+      pitch: 22,
+      heading: flight.heading,
+      focusHeight: flight.altitude,
+    });
+    menu.hide();
+  });
 
   const hud = mountHud(overlay, {
     setPlace: (place) => controls.flyTo(place),
-    setExaggeration: (value) => globe.setExaggeration(value),
-    watchTraffic: () => {
-      const flight = traffic.nearest(controls.view.lat, controls.view.lon);
-      if (!flight) return;
-      controls.flyTo({
-        id: "traffic",
-        name: flight.spec.label,
-        lat: flight.lat,
-        lon: flight.lon,
-        range: 320,
-        pitch: 62,
-        heading: flight.heading,
-        focusHeight: flight.altitude,
-      });
-    },
+    setExaggeration: (value) => terrain.setExaggeration(value),
     locate: () => {
       if (!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(
@@ -82,6 +84,7 @@ async function boot(): Promise<void> {
         { enableHighAccuracy: true, timeout: 8000 },
       );
     },
+    openMenu: () => menu.show(),
   });
 
   const onResize = (): void => {
@@ -98,24 +101,8 @@ async function boot(): Promise<void> {
   let fps = 0;
   let fpsStamp = performance.now();
   let last = performance.now();
-  splashStatus.textContent = "Loading aircraft…";
-  await traffic.load();
-  if (location.hash === "#watch") {
-    const flight = traffic.nearest(controls.view.lat, controls.view.lon);
-    if (flight) {
-      controls.flyTo({
-        id: "traffic",
-        name: flight.spec.label,
-        lat: flight.lat,
-        lon: flight.lon,
-        range: 320,
-        pitch: 62,
-        heading: flight.heading,
-        focusHeight: flight.altitude,
-      });
-    }
-  }
   splash.classList.add("hidden");
+  menu.show();
 
   const frame = (): void => {
     const now = performance.now();
@@ -129,12 +116,13 @@ async function boot(): Promise<void> {
     }
 
     controls.update(dt);
-    controls.getOrigin(origin);
-    atmosphere.position.copy(origin).multiplyScalar(-1);
-    stars.position.copy(atmosphere.position);
-    globe.update(camera, canvas.clientHeight, origin);
-    traffic.update(dt, origin);
-    hud.update(controls.view, { fps, backend, tiles: globe.getStats().tiles });
+    const { lat, lon, range } = controls.view;
+    terrain.update(camera, lat, lon, range);
+    traffic.update(dt, lat, lon);
+    const fog = scene.fog as Fog;
+    fog.near = Math.max(2_000, range * 4);
+    fog.far = Math.max(fog.near + 4_000, range * 30);
+    hud.update(controls.view, { fps, backend, tiles: terrain.getStats().tiles });
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   };
