@@ -78,7 +78,7 @@ export class AirTraffic {
     const loader = new GLTFLoader();
     const templates = new Map<string, Object3D>();
     await Promise.all(SPECS.map(async (spec) => {
-      const gltf = await loader.loadAsync(`/aircraft/${spec.file}`);
+      const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}aircraft/${spec.file}`);
       const mesh = gltf.scene;
       const measured = this.axisLength(mesh, spec.nose);
       const nose = AXIS[spec.nose];
