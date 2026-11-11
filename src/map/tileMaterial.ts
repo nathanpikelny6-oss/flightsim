@@ -13,7 +13,7 @@ export type HeightScale = ReturnType<typeof uniform>;
 
 export function configureColorTexture(map: Texture): void {
   map.colorSpace = SRGBColorSpace;
-  map.anisotropy = 4;
+  map.anisotropy = 8;
   map.generateMipmaps = true;
   map.minFilter = LinearMipmapLinearFilter;
   map.magFilter = LinearFilter;
@@ -23,6 +23,7 @@ export function configureColorTexture(map: Texture): void {
 }
 
 export function configureHeightTexture(map: Texture): void {
+  map.flipY = true;
   map.colorSpace = NoColorSpace;
   map.generateMipmaps = false;
   map.minFilter = LinearFilter;

@@ -1,6 +1,6 @@
 # Flight Map
 
-Mobile-first 3D globe for a browser flight sim. This first slice is the map: WebGPU terrain, satellite imagery, and touch orbit/pan.
+Mobile-first flat terrain map for a browser flight sim. WebGPU draws satellite imagery and elevation in a local east-north-up frame. A spawn menu opens after the aircraft files load.
 
 ## Stack
 
