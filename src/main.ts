@@ -12,6 +12,7 @@ import { GlobeControls } from "./map/controls.ts";
 import { createAtmosphere, createStarfield } from "./map/atmosphere.ts";
 import { DEFAULT_PLACE } from "./map/places.ts";
 import { mountHud } from "./ui/hud.ts";
+import { AirTraffic } from "./aircraft/traffic.ts";
 
 const canvas = document.querySelector("#globe") as HTMLCanvasElement;
 const overlay = document.querySelector("#hud") as HTMLElement;
@@ -50,7 +51,8 @@ async function boot(): Promise<void> {
   const globe = new GlobeMap(quality);
   const atmosphere = createAtmosphere();
   const stars = createStarfield();
-  scene.add(stars, atmosphere, globe.group);
+  const traffic = new AirTraffic();
+  scene.add(stars, atmosphere, globe.group, traffic.group, ...traffic.lights);
 
   const controls = new GlobeControls(camera, canvas, DEFAULT_PLACE);
   const origin = new Vector3();
@@ -58,6 +60,20 @@ async function boot(): Promise<void> {
   const hud = mountHud(overlay, {
     setPlace: (place) => controls.flyTo(place),
     setExaggeration: (value) => globe.setExaggeration(value),
+    watchTraffic: () => {
+      const flight = traffic.nearest(controls.view.lat, controls.view.lon);
+      if (!flight) return;
+      controls.flyTo({
+        id: "traffic",
+        name: flight.spec.label,
+        lat: flight.lat,
+        lon: flight.lon,
+        range: 320,
+        pitch: 62,
+        heading: flight.heading,
+        focusHeight: flight.altitude,
+      });
+    },
     locate: () => {
       if (!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(
@@ -82,6 +98,23 @@ async function boot(): Promise<void> {
   let fps = 0;
   let fpsStamp = performance.now();
   let last = performance.now();
+  splashStatus.textContent = "Loading aircraft…";
+  await traffic.load();
+  if (location.hash === "#watch") {
+    const flight = traffic.nearest(controls.view.lat, controls.view.lon);
+    if (flight) {
+      controls.flyTo({
+        id: "traffic",
+        name: flight.spec.label,
+        lat: flight.lat,
+        lon: flight.lon,
+        range: 320,
+        pitch: 62,
+        heading: flight.heading,
+        focusHeight: flight.altitude,
+      });
+    }
+  }
   splash.classList.add("hidden");
 
   const frame = (): void => {
@@ -100,6 +133,7 @@ async function boot(): Promise<void> {
     atmosphere.position.copy(origin).multiplyScalar(-1);
     stars.position.copy(atmosphere.position);
     globe.update(camera, canvas.clientHeight, origin);
+    traffic.update(dt, origin);
     hud.update(controls.view, { fps, backend, tiles: globe.getStats().tiles });
     renderer.render(scene, camera);
     requestAnimationFrame(frame);

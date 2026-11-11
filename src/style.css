@@ -149,10 +149,15 @@ body {
   accent-color: #3ad39a;
 }
 
-.hint {
+.hint,
+.credit {
   margin: 0;
   font-size: 11px;
   pointer-events: none;
+}
+
+.credit {
+  color: #7ea3bd;
 }
 
 #splash {

@@ -15,6 +15,7 @@ export type GlobeView = {
   range: number;
   pitch: number;
   heading: number;
+  focusHeight: number;
 };
 
 const MIN_RANGE = 400;
@@ -45,17 +46,19 @@ export class GlobeControls {
       range: start.range,
       pitch: start.pitch,
       heading: start.heading,
+      focusHeight: 0,
     };
     this.bind();
     this.apply();
   }
 
-  flyTo(place: Place): void {
+  flyTo(place: Place & { focusHeight?: number }): void {
     this.view.lat = place.lat;
     this.view.lon = place.lon;
     this.view.range = place.range;
     this.view.pitch = place.pitch;
     this.view.heading = place.heading;
+    this.view.focusHeight = place.focusHeight ?? 0;
     this.velEast = this.velNorth = this.velRange = this.velHeading = this.velPitch = 0;
     this.apply();
   }
@@ -89,7 +92,7 @@ export class GlobeControls {
   }
 
   apply(): void {
-    const { lat, lon, range, pitch, heading } = this.view;
+    const { lat, lon, range, pitch, heading, focusHeight } = this.view;
     const origin = geodeticToEcef(lat, lon, 0);
     const east = eastVector(lon);
     const north = northVector(lat, lon);
@@ -110,12 +113,12 @@ export class GlobeControls {
     const horiz = Math.sin(pitchRad) * range;
     const vert = Math.cos(pitchRad) * range;
     this.camera.position.set(
-      origin.x - forward.x * horiz + up.x * vert - origin.x,
-      origin.y - forward.y * horiz + up.y * vert - origin.y,
-      origin.z - forward.z * horiz + up.z * vert - origin.z,
+      -forward.x * horiz + up.x * (vert + focusHeight),
+      -forward.y * horiz + up.y * (vert + focusHeight),
+      -forward.z * horiz + up.z * (vert + focusHeight),
     );
     this.camera.up.set(up.x, up.y, up.z);
-    this.camera.lookAt(0, 0, 0);
+    this.camera.lookAt(up.x * focusHeight, up.y * focusHeight, up.z * focusHeight);
     const near = clamp(range * 0.02, 2, 40_000);
     const far = clamp(range * 24 + 8_000_000, 200_000, 80_000_000);
     if (this.camera.near !== near || this.camera.far !== far) {
@@ -145,6 +148,7 @@ export class GlobeControls {
 
   private onPointerDown = (event: PointerEvent): void => {
     this.canvas.setPointerCapture(event.pointerId);
+    this.view.focusHeight = 0;
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     this.moving = true;
     this.velEast = this.velNorth = this.velRange = this.velHeading = this.velPitch = 0;
