@@ -106,7 +106,7 @@ export class AirTraffic {
       lat,
       lon,
       heading,
-      altitude: 280,
+      altitude: 120,
     };
     this.flights.push(flight);
     return flight;

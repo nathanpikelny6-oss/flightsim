@@ -68,8 +68,8 @@ export class GlobeControls {
     this.view.lon = lon;
     this.view.heading = heading;
     this.view.focusHeight = altitude;
-    this.view.range = 260;
-    this.view.pitch = 76;
+    this.view.range = 55;
+    this.view.pitch = 50;
     this.userSteering = false;
     this.velEast = this.velNorth = this.velRange = this.velHeading = this.velPitch = 0;
     this.apply();

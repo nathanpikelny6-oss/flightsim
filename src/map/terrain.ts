@@ -61,7 +61,7 @@ export class TerrainMap {
   constructor(quality: QualityTier) {
     this.segments = quality === "mobile" ? 48 : 64;
     this.maxZoom = quality === "mobile" ? 16 : 17;
-    this.sideCap = quality === "mobile" ? 5 : 7;
+    this.sideCap = quality === "mobile" ? 7 : 9;
     this.placeholderColor = makeRgbaTexture(92, 124, 92);
     configureColorTexture(this.placeholderColor);
     this.loader.setCrossOrigin("anonymous");
@@ -127,7 +127,8 @@ export class TerrainMap {
     wanted: Set<string>,
   ): void {
     const tileSize = Math.max(40, tileGroundSizeMeters(lat, z));
-    const viewWidth = 2 * range * Math.tan((fov * Math.PI) / 360) * Math.max(aspect, 0.6);
+    const reach = Math.max(range * 8, 2800);
+    const viewWidth = 2 * reach * Math.tan((fov * Math.PI) / 360) * Math.max(aspect, 0.6);
     const span = Math.min(cap, Math.max(3, Math.ceil(viewWidth / tileSize) + 2));
     const half = Math.floor(span / 2);
     const cx = Math.floor(lonToTileX(lon, z));
