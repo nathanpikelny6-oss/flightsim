@@ -3,6 +3,7 @@ import { FORMATS, frameSize, planReel, PlanError, type Aspect, type ReelPlan } f
 import { MODELS, modelById, type Provider } from "../shared/models.ts";
 import { drawFrame, loadFonts } from "./draw.ts";
 import { fileExtension, recordReel } from "./record.ts";
+import { paintLobbyPoster, recordLobby, type LobbyPhotos } from "./lobbyClip.ts";
 import { loadPlan, runProvider } from "./clientApi.ts";
 import { ModelBoard, TrendBoard } from "./panels.tsx";
 
@@ -33,6 +34,15 @@ function keyName(provider: Provider): keyof Keys {
   return "gemini";
 }
 
+function loadCastPhoto(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("That photo didn't open."));
+    image.src = URL.createObjectURL(file);
+  });
+}
+
 function keyLabel(provider: Provider): string {
   if (provider === "dashscope") return "DashScope API key";
   if (provider === "ark") return "BytePlus ModelArk key";
@@ -58,8 +68,11 @@ export function App() {
   const [phase, setPhase] = useState("Ready when you are");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
+  const [leftPhoto, setLeftPhoto] = useState<HTMLImageElement | null>(null);
+  const [rightPhoto, setRightPhoto] = useState<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const urlRef = useRef<string | null>(null);
+  const photos = useMemo<LobbyPhotos>(() => ({ left: leftPhoto, right: rightPhoto }), [leftPhoto, rightPhoto]);
 
   const model = modelById(modelId) ?? MODELS[0];
 
@@ -110,11 +123,22 @@ export function App() {
     canvas.height = size.height;
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
-    const posterAt = plan.formatId === "ozil-goal" ? plan.duration * 0.62 : plan.formatId === "hotel-lobby" ? plan.duration * 0.06 : 0.45;
+    let cancel = false;
+    if (plan.formatId === "hotel-lobby") {
+      ctx.fillStyle = "#ff6200";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      void paintLobbyPoster(canvas, photos, () => !cancel && canvasRef.current === canvas).catch((err: unknown) => {
+        console.error(err);
+      });
+      return () => {
+        cancel = true;
+      };
+    }
+    const posterAt = plan.formatId === "ozil-goal" ? plan.duration * 0.62 : 0.45;
     void loadFonts().then(() => {
       if (canvasRef.current === canvas) drawFrame(ctx, plan, posterAt);
     });
-  }, [input, busy, videoUrl]);
+  }, [input, busy, videoUrl, photos]);
 
   function updatePrompt(value: string) {
     setPrompt(value);
@@ -143,6 +167,21 @@ export function App() {
       const size = frameSize(plan.aspect);
       canvas.width = size.width;
       canvas.height = size.height;
+
+      if (plan.formatId === "hotel-lobby") {
+        if (!photos.left || !photos.right) {
+          throw new Error("Add a photo for the left person and one for the right person.");
+        }
+        setPhase("Playing the motion clip");
+        const blob = await recordLobby(canvas, photos, (ratio) => {
+          setPhase(`Recording ${Math.round(ratio * 100)}%`);
+        });
+        adoptVideo(blob);
+        setEngine("Hotel lobby");
+        setBanner("Your left photo is on the left person and your right photo is on the right, in an orange room. The motion clip has no audio track.");
+        setPhase("Ready");
+        return;
+      }
 
       const wired = Boolean(model.provider && model.access === "key");
       const provider = model.provider;
@@ -280,6 +319,37 @@ export function App() {
               <span className="hint">{prompt.trim().length}/800 · Ctrl+Enter</span>
             </div>
 
+            {formatId === "hotel-lobby" ? (
+              <div className="cast">
+                <label>
+                  Left person
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void loadCastPhoto(file).then(setLeftPhoto).catch((err: unknown) => setError(err instanceof Error ? err.message : "That photo didn't open."));
+                      clearVideo();
+                    }}
+                  />
+                  {leftPhoto ? <img src={leftPhoto.src} alt="" /> : <span className="hint">Photo for the person on the left</span>}
+                </label>
+                <label>
+                  Right person
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void loadCastPhoto(file).then(setRightPhoto).catch((err: unknown) => setError(err instanceof Error ? err.message : "That photo didn't open."));
+                      clearVideo();
+                    }}
+                  />
+                  {rightPhoto ? <img src={rightPhoto.src} alt="" /> : <span className="hint">Photo for the person on the right</span>}
+                </label>
+              </div>
+            ) : null}
+
             <label>Scenes</label>
             <div className="chips">
               {FORMATS.filter((format) => format.scene).map((format) => (
@@ -290,6 +360,7 @@ export function App() {
                   onClick={() => {
                     setFormatId(format.id);
                     updatePrompt(format.example);
+                    if (format.id === "hotel-lobby") setAspect("16:9");
                   }}
                 >
                   {format.name}

@@ -23,7 +23,7 @@ describe("planReel", () => {
       }
       assert.ok(plan.hashtags.length > 0);
       assert.ok(plan.hashtags.every((tag) => /^[a-z0-9]+$/.test(tag)));
-      if (format.id === "hotel-lobby") assert.match(plan.videoPrompt, /microphone/i);
+      if (format.id === "hotel-lobby") assert.match(plan.videoPrompt, /orange room/i);
     }
   });
 
