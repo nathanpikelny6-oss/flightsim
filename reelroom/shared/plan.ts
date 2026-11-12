@@ -75,9 +75,9 @@ export const FORMATS: FormatSpec[] = [
   {
     id: "hotel-lobby",
     name: "Hotel lobby",
-    summary: "Locked two-shot. One points, one checks a watch, they turn, then the visor.",
-    example: "hotel lobby, two people, hanging mic, the point and the visor",
-    audio: "A steady mid-tempo beat under the hands.",
+    summary: "Your left photo and right photo on the motion clip, in an orange room.",
+    example: "hotel lobby, orange room, two people",
+    audio: "The motion clip has no audio track.",
     scene: true,
   },
   {
@@ -270,7 +270,7 @@ export function videoPromptFor(format: FormatId, subject: string, aspect: Aspect
     return `Cinematic ${aspect} night football match. A number 10 in a white shirt with red sleeves receives the ball at the edge of the box, takes one touch, and curls it into the top corner. Follow the ball into the net. Floodlights, crowd, slow motion on the strike. No logos and no readable name on the shirt. ${subject}`;
   }
   if (format === "hotel-lobby") {
-    return `Locked ${aspect} studio shot, camera completely still. Two people from the waist up, a hanging microphone between them. The person on the left wears a striped short-sleeve shirt. The person on the right wears a dotted short-sleeve shirt. Play the moves in order: the right person points across, then both gesture at chest height; the right person checks a watch, turns their back, and turns to face forward again; both raise one finger to their lips; they finish with open palms and the right person shades their eyes with one hand. No logos and no readable text. ${subject}`;
+    return `Locked ${aspect} shot in an all-orange room. Two people from the waist up perform the hotel lobby motion beside a hanging microphone: a point across, hands at the chest, a watch check, a full turn, a finger to the lips, then a hand shading the eyes. No logos. ${subject}`;
   }
   return `${subject}. ${aspect} video that shows the action itself, not title cards.`;
 }

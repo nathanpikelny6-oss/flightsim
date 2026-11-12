@@ -173,6 +173,29 @@ fieldset { border: 0; margin: 0; padding: 0; }
 
 .error { background: #f3d2cb; }
 
+.cast {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cast label {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cast input[type="file"] { font-size: 13px; font-weight: 450; }
+
+.cast img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--ink);
+}
+
 .phone {
   background: #111;
   border: 1px solid var(--ink);

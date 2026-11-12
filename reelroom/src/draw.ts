@@ -1,5 +1,5 @@
 import { shotTiming, type ReelPlan } from "../shared/plan.ts";
-import { drawGoal, drawLobby, drawSceneCaption } from "./scenes.ts";
+import { drawGoal, drawSceneCaption } from "./scenes.ts";
 
 type Palette = {
   bg: string;
@@ -234,11 +234,15 @@ function entrance(plan: ReelPlan, local: number, dur: number): number {
 }
 
 export function drawFrame(ctx: CanvasRenderingContext2D, plan: ReelPlan, time: number): void {
-  if (plan.formatId === "ozil-goal" || plan.formatId === "hotel-lobby") {
-    if (plan.formatId === "ozil-goal") drawGoal(ctx, plan, time);
-    else drawLobby(ctx, plan, time);
+  if (plan.formatId === "ozil-goal") {
+    drawGoal(ctx, plan, time);
     const { shot } = shotTiming(plan, time);
     drawSceneCaption(ctx, shot.line);
+    return;
+  }
+  if (plan.formatId === "hotel-lobby") {
+    ctx.fillStyle = "#ff6200";
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     return;
   }
   const w = ctx.canvas.width;
