@@ -135,8 +135,7 @@ export function App() {
     setPhase("Writing the cut");
     clearVideo();
     try {
-      const loaded = await loadPlan(input);
-      const plan = loaded.plan;
+      const { plan } = loadPlan(input);
       setResult(plan);
       const canvas = canvasRef.current;
       if (!canvas) throw new Error("The preview isn't on the page.");
@@ -162,7 +161,7 @@ export function App() {
           );
           adoptVideo(blob);
           setEngine(model.name);
-          setBanner(`${model.name} returned the video. The key stayed in this browser.`);
+          setBanner(`${model.name} returned the video. This site forwarded your key and did not store it.`);
           setPhase("Ready");
           return;
         } catch (err) {
@@ -175,8 +174,6 @@ export function App() {
             ? `${model.name} needs a ${keyLabel(provider)} saved in this browser. This cut was rendered free, on your device.`
             : `${model.name} isn't called from this free site. This cut uses that pace and was rendered on your device.`,
         );
-      } else if (loaded.source === "gemini-2.5-flash") {
-        setBanner("Gemini wrote the shot list. The video was rendered free on this device.");
       } else {
         setBanner("Rendered free on this device. No account and no key.");
       }
@@ -257,7 +254,8 @@ export function App() {
             <h1>Cut a TikTok from a prompt.</h1>
             <p className="lede">
               Reelroom writes the hook and records a 9:16 video in your browser. Veo, Wan, and Seedance run when you
-              save that provider's key. The key is not sent anywhere else, and the free cut never needs one.
+              save that provider's key. The browser sends the key to this site, which forwards it to that provider
+              and does not store it. The free cut never needs a key.
             </p>
 
             <label htmlFor="prompt">Prompt</label>
@@ -388,8 +386,8 @@ export function App() {
                   </div>
                 ) : null}
                 <p className="hint">
-                  Veo is 9:16 or 16:9. A square frame is sent to Veo as vertical. Provider video is billed to the key,
-                  not to Reelroom.
+                  Veo is 9:16 or 16:9. A square frame is sent to Veo as vertical. This site forwards the key to the
+                  provider for that request and does not keep it. The provider bills the key, not Reelroom.
                 </p>
               </div>
             ) : null}
@@ -437,8 +435,8 @@ export function App() {
       ) : null}
 
       <footer>
-        Free cuts stay on this device. Veo calls Google, Wan calls Alibaba DashScope, and Seedance calls BytePlus
-        ModelArk, using the key you paste. Reelroom does not keep the key or the file.
+        Free cuts stay on this device. For Veo, Wan, and Seedance, the browser sends your key to this site, which
+        forwards it to Google, Alibaba, or ByteDance for that request and does not store the key or the file.
       </footer>
     </>
   );

@@ -1,5 +1,5 @@
-import { adoptPlan, planReel, PlanError, type PlanInput } from "./plan.ts";
 import { pollJob, startJob } from "./providers.ts";
+import { tooMany } from "./limit.ts";
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { "cache-control": "no-store" } });
@@ -15,70 +15,9 @@ async function readJson(req: Request): Promise<Record<string, unknown> | null> {
   }
 }
 
-function planInput(body: Record<string, unknown>): PlanInput {
-  return {
-    prompt: String(body.prompt ?? ""),
-    formatId: String(body.formatId ?? ""),
-    duration: Number(body.duration ?? 6),
-    aspect: String(body.aspect ?? "9:16"),
-    edit: String(body.edit ?? "punch"),
-  };
-}
-
-function gatewayReady(): boolean {
-  const runtime = globalThis as { Netlify?: { env?: { get?: (name: string) => string | undefined } } };
-  const read = (name: string) => runtime.Netlify?.env?.get?.(name) || process.env[name];
-  return Boolean(read("GEMINI_API_KEY") || read("NETLIFY_AI_GATEWAY_KEY") || read("GOOGLE_GEMINI_BASE_URL"));
-}
-
-async function refine(local: ReturnType<typeof planReel>): Promise<{ plan: ReturnType<typeof planReel>; source: string }> {
-  if (!gatewayReady()) return { plan: local, source: "reelroom" };
-  try {
-    const { GoogleGenAI } = await import("@google/genai");
-    const ai = new GoogleGenAI({});
-    const count = local.shots.length;
-    const instruction = [
-      `Write a ${local.duration}-second ${local.aspect} video shot list.`,
-      `Format: ${local.formatName}. ${local.audio}`,
-      `Subject, in the user's words: ${JSON.stringify(local.subject)}`,
-      `Return JSON with title, hook, caption, hashtags (4 short words, no #), audio, and shots (exactly ${count} objects with kicker, line, detail).`,
-      "line is under 42 characters. detail is under 90 characters. Use the subject's real nouns.",
-      "Do not invent prices, stats, or quotes. Do not mention being a model.",
-    ].join("\n");
-    const pending = ai.models
-      .generateContent({
-        model: "gemini-2.5-flash",
-        contents: instruction,
-        config: { responseMimeType: "application/json" },
-      })
-      .then((response) => response.text ?? "")
-      .catch(() => "");
-    const text = await Promise.race([
-      pending,
-      new Promise<string>((resolve) => setTimeout(() => resolve(""), 8000)),
-    ]);
-    if (!text.trim()) return { plan: local, source: "reelroom" };
-    const cleaned = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-    const parsed = JSON.parse(cleaned) as unknown;
-    return { plan: adoptPlan(local, parsed), source: "gemini-2.5-flash" };
-  } catch {
-    return { plan: local, source: "reelroom" };
-  }
-}
-
-export async function handlePlan(req: Request): Promise<Response> {
-  if (req.method !== "POST") return json({ error: "POST a prompt." }, 405);
-  const body = await readJson(req);
-  if (!body) return json({ error: "Send JSON." }, 400);
-  try {
-    const input = planInput(body);
-    const local = planReel(input);
-    const refined = await refine(local);
-    return json({ source: refined.source, plan: refined.plan });
-  } catch (error) {
-    if (error instanceof PlanError) return json({ error: error.message }, 400);
-    return json({ error: "Couldn't write that cut." }, 500);
-  }
+function caller(req: Request): string {
+  const forwarded = req.headers.get("x-nf-client-connection-ip") || req.headers.get("x-forwarded-for") || "shared";
+  return forwarded.split(",")[0]?.trim().slice(0, 80) || "shared";
 }
 
 export async function handleVideo(req: Request): Promise<Response> {
@@ -86,6 +25,12 @@ export async function handleVideo(req: Request): Promise<Response> {
   const body = await readJson(req);
   if (!body) return json({ error: "Send JSON." }, 400);
   const action = String(body.action ?? "");
+  const cap = action === "start" ? 6 : 40;
+  if (action === "start" || action === "status") {
+    if (tooMany(`${action}:${caller(req)}`, cap, 60_000)) {
+      return json({ error: "Too many video requests. Wait a minute and try again." }, 429);
+    }
+  }
   try {
     if (action === "start") {
       const started = await startJob({

@@ -1,24 +1,8 @@
-import { adoptPlan, planReel, type PlanInput, type ReelPlan } from "../shared/plan.ts";
+import { planReel, type PlanInput, type ReelPlan } from "../shared/plan.ts";
 import type { ModelSpec } from "../shared/models.ts";
 
-export async function loadPlan(input: PlanInput): Promise<{ plan: ReelPlan; source: string }> {
-  const local = planReel(input);
-  try {
-    const response = await fetch("/api/plan", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(input),
-      signal: AbortSignal.timeout(9000),
-    });
-    if (!response.ok) return { plan: local, source: "reelroom" };
-    const data = (await response.json()) as { source?: string; plan?: unknown };
-    return {
-      plan: adoptPlan(local, data.plan),
-      source: data.source === "gemini-2.5-flash" ? data.source : "reelroom",
-    };
-  } catch {
-    return { plan: local, source: "reelroom" };
-  }
+export function loadPlan(input: PlanInput): { plan: ReelPlan; source: "reelroom" } {
+  return { plan: planReel(input), source: "reelroom" };
 }
 
 function sleep(ms: number): Promise<void> {

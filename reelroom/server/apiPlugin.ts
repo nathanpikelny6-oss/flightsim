@@ -1,6 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import type { Connect, Plugin, PreviewServer, ViteDevServer } from "vite";
-import { handlePlan, handleVideo } from "../shared/http.ts";
+import { handleVideo } from "../shared/http.ts";
 
 function readBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -14,7 +14,7 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
 function attach(server: ViteDevServer | PreviewServer): void {
   const middleware: Connect.NextHandleFunction = async (req, res, next) => {
     const path = (req.url ?? "").split("?")[0];
-    if (path !== "/api/plan" && path !== "/api/video") {
+    if (path !== "/api/video") {
       next();
       return;
     }
@@ -25,7 +25,7 @@ function attach(server: ViteDevServer | PreviewServer): void {
         headers: { "content-type": String(req.headers["content-type"] ?? "application/json") },
         body: body && body.length > 0 ? new Uint8Array(body) : undefined,
       });
-      const response = path === "/api/plan" ? await handlePlan(request) : await handleVideo(request);
+      const response = await handleVideo(request);
       res.statusCode = response.status;
       response.headers.forEach((value, key) => {
         if (key === "content-encoding") return;
