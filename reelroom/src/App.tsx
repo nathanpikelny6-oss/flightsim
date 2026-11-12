@@ -110,8 +110,9 @@ export function App() {
     canvas.height = size.height;
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
+    const posterAt = plan.formatId === "ozil-goal" || plan.formatId === "hotel-lobby" ? plan.duration * 0.62 : 0.45;
     void loadFonts().then(() => {
-      if (canvasRef.current === canvas) drawFrame(ctx, plan, 0.45);
+      if (canvasRef.current === canvas) drawFrame(ctx, plan, posterAt);
     });
   }, [input, busy, videoUrl]);
 
@@ -151,7 +152,7 @@ export function App() {
           const blob = await runProvider(
             {
               model,
-              prompt: `${plan.hook}. ${prompt}. ${plan.audio}`,
+              prompt: plan.videoPrompt,
               aspect,
               duration,
               key,
@@ -279,9 +280,26 @@ export function App() {
               <span className="hint">{prompt.trim().length}/800 · Ctrl+Enter</span>
             </div>
 
-            <label>Trend format</label>
+            <label>Scenes</label>
             <div className="chips">
-              {FORMATS.map((format) => (
+              {FORMATS.filter((format) => format.scene).map((format) => (
+                <button
+                  key={format.id}
+                  type="button"
+                  className={format.id === formatId ? "chip on" : "chip"}
+                  onClick={() => {
+                    setFormatId(format.id);
+                    updatePrompt(format.example);
+                  }}
+                >
+                  {format.name}
+                </button>
+              ))}
+            </div>
+
+            <label>Caption formats</label>
+            <div className="chips">
+              {FORMATS.filter((format) => !format.scene).map((format) => (
                 <button
                   key={format.id}
                   type="button"

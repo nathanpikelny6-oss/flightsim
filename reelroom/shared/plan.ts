@@ -2,6 +2,8 @@ export type Aspect = "9:16" | "1:1" | "16:9";
 export type EditStyle = "cinematic" | "punch" | "fast";
 
 export type FormatId =
+  | "ozil-goal"
+  | "hotel-lobby"
   | "result-first"
   | "wrong-right"
   | "say-this"
@@ -29,6 +31,7 @@ export type ReelPlan = {
   caption: string;
   hashtags: string[];
   audio: string;
+  videoPrompt: string;
   shots: Shot[];
   duration: number;
   aspect: Aspect;
@@ -50,6 +53,7 @@ export type FormatSpec = {
   summary: string;
   example: string;
   audio: string;
+  scene: boolean;
 };
 
 export class PlanError extends Error {
@@ -61,11 +65,28 @@ export class PlanError extends Error {
 
 export const FORMATS: FormatSpec[] = [
   {
+    id: "ozil-goal",
+    name: "AI Özil goal",
+    summary: "A number 10 in white and red takes one touch and curls it into the top corner.",
+    example: "AI Özil goal, night match, top corner",
+    audio: "Crowd swell, then the hit.",
+    scene: true,
+  },
+  {
+    id: "hotel-lobby",
+    name: "Hotel lobby",
+    summary: "A slow walk through a grand lobby: marble, columns, chandelier, one coat crossing.",
+    example: "hotel lobby walk, gold light, marble floor",
+    audio: "Almost no drums. Footsteps and room tone.",
+    scene: true,
+  },
+  {
     id: "result-first",
     name: "Result first",
     summary: "Open on the finished thing, then show how you got there.",
     example: "weeknight chili that looks like it simmered all day",
     audio: "Hold a steady beat. Cut on the downbeat when the bowl comes back.",
+    scene: false,
   },
   {
     id: "wrong-right",
@@ -73,6 +94,7 @@ export const FORMATS: FormatSpec[] = [
     summary: "Show the messy version, then the clean version, with almost no talk.",
     example: "how to pack a carry-on so the laptop is not on the bottom",
     audio: "A short stop before the fix. Let the second half feel lighter.",
+    scene: false,
   },
   {
     id: "say-this",
@@ -80,6 +102,7 @@ export const FORMATS: FormatSpec[] = [
     summary: "Name an awkward moment and put the exact sentence on screen.",
     example: "the text I send when a client goes quiet for a week",
     audio: "Keep the bed quiet so the sentence is the whole joke.",
+    scene: false,
   },
   {
     id: "before-after",
@@ -87,6 +110,7 @@ export const FORMATS: FormatSpec[] = [
     summary: "Flash the change in the first second, then explain the one move.",
     example: "a ten-minute apartment reset before people come over",
     audio: "Two hits up front, then space while the after shot holds.",
+    scene: false,
   },
   {
     id: "trio",
@@ -94,6 +118,7 @@ export const FORMATS: FormatSpec[] = [
     summary: "Stack a beginner, a polished take, and one ridiculous third option.",
     example: "three ways to answer when someone asks what you do",
     audio: "One hit per row. The third row gets the extra kick.",
+    scene: false,
   },
   {
     id: "save-chart",
@@ -101,6 +126,7 @@ export const FORMATS: FormatSpec[] = [
     summary: "Put the whole reference on one screen so people pause and save it.",
     example: "a week of desk lunches that are not a sad salad",
     audio: "Almost no drums. A soft pulse so the words stay readable.",
+    scene: false,
   },
   {
     id: "go-go",
@@ -108,6 +134,7 @@ export const FORMATS: FormatSpec[] = [
     summary: "Impatience comedy. The cut keeps moving while the words stay polite.",
     example: "waiting for the group chat to pick a restaurant",
     audio: "Fast hats. The words land like you are smiling through it.",
+    scene: false,
   },
   {
     id: "cringe",
@@ -115,6 +142,7 @@ export const FORMATS: FormatSpec[] = [
     summary: "Then versus now. Admit the old habit, then show the current one.",
     example: "the notes app I used instead of actually starting the project",
     audio: "Half-time. Leave a gap between the old habit and the new one.",
+    scene: false,
   },
   {
     id: "carousel",
@@ -122,6 +150,7 @@ export const FORMATS: FormatSpec[] = [
     summary: "Five beats, one idea each, like a photo carousel with motion.",
     example: "what I film in a rental before I trust the listing",
     audio: "Even pace, one hit per slide, no fill.",
+    scene: false,
   },
   {
     id: "one-question",
@@ -129,6 +158,7 @@ export const FORMATS: FormatSpec[] = [
     summary: "Take a single viewer question and answer it without a fake number.",
     example: "what it actually costs to shoot a weekend away on a phone",
     audio: "Sparse. The answer line should be the loudest moment.",
+    scene: false,
   },
 ];
 
@@ -189,7 +219,7 @@ function asEdit(value: string): EditStyle {
 }
 
 function asFormat(value: string): FormatSpec {
-  return FORMATS.find((format) => format.id === value) ?? FORMATS[0];
+  return FORMATS.find((format) => format.id === value) ?? FORMATS.find((format) => format.id === "result-first") ?? FORMATS[0];
 }
 
 function asDuration(value: number): number {
@@ -235,9 +265,33 @@ function hashtagsFor(subject: string, niche: string): string[] {
   return unique.slice(0, 5);
 }
 
+export function videoPromptFor(format: FormatId, subject: string, aspect: Aspect): string {
+  if (format === "ozil-goal") {
+    return `Cinematic ${aspect} night football match. A number 10 in a white shirt with red sleeves receives the ball at the edge of the box, takes one touch, and curls it into the top corner. Follow the ball into the net. Floodlights, crowd, slow motion on the strike. No logos and no readable name on the shirt. ${subject}`;
+  }
+  if (format === "hotel-lobby") {
+    return `Slow ${aspect} dolly through a grand hotel lobby at night. Marble floor, tall columns, one chandelier, warm gold light, a person in a long coat crossing the lobby, glass doors ahead. Keep moving forward the whole shot. No text and no logos. ${subject}`;
+  }
+  return `${subject}. ${aspect} video that shows the action itself, not title cards.`;
+}
+
 function shotsFor(format: FormatId, subject: string, short: string): Shot[] {
   const line = short;
   switch (format) {
+    case "ozil-goal":
+      return [
+        { kicker: "Night match", line: "One touch", detail: "He lets it run across his body." },
+        { kicker: "The hit", line: "Top corner", detail: "The curl starts outside the post." },
+        { kicker: "The net", line: "It moves", detail: "Hold on the bulge. No replay yet." },
+        { kicker: "Cut", line: clip(line, 42), detail: "End on the crowd, not a graphic." },
+      ];
+    case "hotel-lobby":
+      return [
+        { kicker: "Doors", line: "Keep walking", detail: "The camera never stops." },
+        { kicker: "Marble", line: "Gold light", detail: "Columns pass on both sides." },
+        { kicker: "Cross", line: "One coat", detail: "They cross without looking over." },
+        { kicker: "Glass", line: clip(line, 42), detail: "End as the doors get close." },
+      ];
     case "wrong-right":
       return [
         { kicker: "The usual way", line: clip(`Stop: ${line}`, 46), detail: "Film the version that wastes the first second." },
@@ -321,7 +375,7 @@ export function planReel(input: PlanInput): ReelPlan {
   const subject = clip(raw, 180);
   if (subject.length < 3) throw new PlanError("Write a prompt first.");
   const format = asFormat(input.formatId);
-  const edit = asEdit(input.edit);
+  const edit = format.id === "hotel-lobby" ? "cinematic" : format.id === "ozil-goal" ? "fast" : asEdit(input.edit);
   const duration = asDuration(Number(input.duration));
   const aspect = asAspect(input.aspect);
   const niche = nicheFor(subject);
@@ -339,6 +393,7 @@ export function planReel(input: PlanInput): ReelPlan {
     caption: clip(`${hook}. ${shots[1]?.detail ?? format.summary}`, 180),
     hashtags,
     audio: format.audio,
+    videoPrompt: videoPromptFor(format.id, subject, aspect),
     shots,
     duration,
     aspect,
