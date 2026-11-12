@@ -75,9 +75,9 @@ export const FORMATS: FormatSpec[] = [
   {
     id: "hotel-lobby",
     name: "Hotel lobby",
-    summary: "A slow walk through a grand lobby: marble, columns, chandelier, one coat crossing.",
-    example: "hotel lobby walk, gold light, marble floor",
-    audio: "Almost no drums. Footsteps and room tone.",
+    summary: "Locked two-shot. One points, one checks a watch, they turn, then the visor.",
+    example: "hotel lobby, two people, hanging mic, the point and the visor",
+    audio: "A steady mid-tempo beat under the hands.",
     scene: true,
   },
   {
@@ -270,7 +270,7 @@ export function videoPromptFor(format: FormatId, subject: string, aspect: Aspect
     return `Cinematic ${aspect} night football match. A number 10 in a white shirt with red sleeves receives the ball at the edge of the box, takes one touch, and curls it into the top corner. Follow the ball into the net. Floodlights, crowd, slow motion on the strike. No logos and no readable name on the shirt. ${subject}`;
   }
   if (format === "hotel-lobby") {
-    return `Slow ${aspect} dolly through a grand hotel lobby at night. Marble floor, tall columns, one chandelier, warm gold light, a person in a long coat crossing the lobby, glass doors ahead. Keep moving forward the whole shot. No text and no logos. ${subject}`;
+    return `Locked ${aspect} studio shot, camera completely still. Two people from the waist up, a hanging microphone between them. The person on the left wears a striped short-sleeve shirt. The person on the right wears a dotted short-sleeve shirt. Play the moves in order: the right person points across, then both gesture at chest height; the right person checks a watch, turns their back, and turns to face forward again; both raise one finger to their lips; they finish with open palms and the right person shades their eyes with one hand. No logos and no readable text. ${subject}`;
   }
   return `${subject}. ${aspect} video that shows the action itself, not title cards.`;
 }
@@ -287,10 +287,11 @@ function shotsFor(format: FormatId, subject: string, short: string): Shot[] {
       ];
     case "hotel-lobby":
       return [
-        { kicker: "Doors", line: "Keep walking", detail: "The camera never stops." },
-        { kicker: "Marble", line: "Gold light", detail: "Columns pass on both sides." },
-        { kicker: "Cross", line: "One coat", detail: "They cross without looking over." },
-        { kicker: "Glass", line: clip(line, 42), detail: "End as the doors get close." },
+        { kicker: "The point", line: "Point across", detail: "Camera stays locked. The right hand leads." },
+        { kicker: "The hands", line: "Open palm", detail: "Both hands come up, then one reaches across again." },
+        { kicker: "The watch", line: "Check the watch", detail: "Head drops. The other hand meets the wrist." },
+        { kicker: "The turn", line: "Turn around", detail: "Show the back, then come back to the mic." },
+        { kicker: "The visor", line: "Shade your eyes", detail: clip(line, 42) },
       ];
     case "wrong-right":
       return [
@@ -375,7 +376,7 @@ export function planReel(input: PlanInput): ReelPlan {
   const subject = clip(raw, 180);
   if (subject.length < 3) throw new PlanError("Write a prompt first.");
   const format = asFormat(input.formatId);
-  const edit = format.id === "hotel-lobby" ? "cinematic" : format.id === "ozil-goal" ? "fast" : asEdit(input.edit);
+  const edit = format.id === "ozil-goal" ? "fast" : asEdit(input.edit);
   const duration = asDuration(Number(input.duration));
   const aspect = asAspect(input.aspect);
   const niche = nicheFor(subject);

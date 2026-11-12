@@ -150,112 +150,206 @@ function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, r: number
   ctx.restore();
 }
 
+type LobbyPose = {
+  lx: number;
+  ly: number;
+  rx: number;
+  ry: number;
+  look: number;
+  nod: number;
+  face: number;
+};
+
+const LOBBY_CLIP = 14.92;
+
+function lobbyPose(time: number, keys: { t: number; p: LobbyPose }[]): LobbyPose {
+  if (time <= keys[0].t) return keys[0].p;
+  for (let index = 1; index < keys.length; index += 1) {
+    const next = keys[index];
+    if (time > next.t) continue;
+    const prev = keys[index - 1];
+    const span = next.t - prev.t;
+    const t = span <= 0 ? 1 : (time - prev.t) / span;
+    const mix = (key: keyof LobbyPose) => lerp(prev.p[key], next.p[key], t);
+    return { lx: mix("lx"), ly: mix("ly"), rx: mix("rx"), ry: mix("ry"), look: mix("look"), nod: mix("nod"), face: mix("face") };
+  }
+  return keys[keys.length - 1].p;
+}
+
+function lobbyKeys(rows: [number, number, number, number, number, number, number, number][]): { t: number; p: LobbyPose }[] {
+  return rows.map(([t, lx, ly, rx, ry, look, nod, face]) => ({ t, p: { lx, ly, rx, ry, look, nod, face } }));
+}
+
 export function drawLobby(ctx: CanvasRenderingContext2D, plan: ReelPlan, time: number): void {
   const w = ctx.canvas.width;
   const h = ctx.canvas.height;
-  const u = clamp01(time / plan.duration);
-  const cam = u * 7.2;
-  ctx.fillStyle = "#1a120c";
-  ctx.fillRect(0, 0, w, h);
-  const wash = ctx.createLinearGradient(0, 0, 0, h);
-  wash.addColorStop(0, "#3a2a1c");
-  wash.addColorStop(0.45, "#24180f");
-  wash.addColorStop(1, "#120e0b");
-  ctx.fillStyle = wash;
+  const clipTime = clamp01(time / plan.duration) * LOBBY_CLIP;
+  ctx.fillStyle = "#f6f3ee";
   ctx.fillRect(0, 0, w, h);
 
-  const horizon = h * 0.4;
-  const project = (worldX: number, worldY: number, worldZ: number) => {
-    const depth = Math.max(0.35, worldZ - cam);
-    const focal = Math.min(w, h) * 0.72;
-    return { x: w / 2 + (worldX * focal) / depth, y: horizon + (worldY * focal) / depth, depth };
-  };
+  const wide = w > h;
+  const s = (wide ? h : w) * (wide ? 0.78 : 0.86);
+  const waist = h * (wide ? 0.92 : 0.76);
+  const shoulderY = waist - s * 0.5;
+  const headY = shoulderY - s * 0.28;
+  const micX = w * 0.5;
+  const micBottom = headY;
+  const micTop = micBottom - s * 0.22;
+  ctx.strokeStyle = "#1b1814";
+  ctx.lineWidth = Math.max(2, s * 0.012);
+  ctx.beginPath();
+  ctx.moveTo(micX, 0);
+  ctx.lineTo(micX, micTop);
+  ctx.stroke();
+  ctx.fillStyle = "#2c2c2c";
+  ctx.fillRect(micX - s * 0.025, micTop, s * 0.05, micBottom - micTop);
+  ctx.fillStyle = "#d8d2c8";
+  ctx.fillRect(micX - s * 0.04, micTop, s * 0.08, s * 0.03);
+  ctx.fillRect(micX - s * 0.04, micBottom - s * 0.03, s * 0.08, s * 0.035);
 
-  for (let band = 0; band < 14; band += 1) {
-    const z0 = band * 0.7;
-    const z1 = z0 + 0.7;
-    if (z1 < cam + 0.35) continue;
-    const near = project(-1.6, 1.15, z0);
-    const far = project(-1.6, 1.15, z1);
-    const nearR = project(1.6, 1.15, z0);
-    const farR = project(1.6, 1.15, z1);
-    if (near.depth > 12) continue;
-    ctx.fillStyle = band % 2 === 0 ? "#cbb79a" : "#a89074";
-    ctx.globalAlpha = 0.9;
-    ctx.beginPath();
-    ctx.moveTo(near.x, near.y);
-    ctx.lineTo(nearR.x, nearR.y);
-    ctx.lineTo(farR.x, farR.y);
-    ctx.lineTo(far.x, far.y);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
+  const left = lobbyPose(
+    clipTime,
+    lobbyKeys([
+      [0, -0.36, 0.48, 0.36, 0.48, 0, 0.2, 1],
+      [3.5, -0.36, 0.48, 0.36, 0.48, 0, 0.2, 1],
+      [4.4, -0.34, 0.46, 0.46, 0.24, 1, 0, 1],
+      [6.2, -0.36, 0.48, 0.36, 0.46, 1, 0, 1],
+      [7.5, -0.16, 0.16, 0.36, 0.46, 1, 0, 1],
+      [11.6, -0.16, 0.16, 0.36, 0.46, 1, 0, 1],
+      [12.4, -0.36, 0.46, 0.04, -0.34, 1, 0, 1],
+      [13.4, -0.36, 0.46, 0.04, -0.34, 1, 0, 1],
+      [14.1, -0.34, 0.12, 0.36, 0.12, 0, 0.8, 1],
+      [LOBBY_CLIP, -0.34, 0.12, 0.36, 0.12, 0, 0.8, 1],
+    ]),
+  );
+  const right = lobbyPose(
+    clipTime,
+    lobbyKeys([
+      [0, 0.36, 0.46, -0.48, 0.2, 0.2, 0, 1],
+      [1.7, 0.36, 0.46, -0.48, 0.2, 0.2, 0, 1],
+      [2.3, -0.14, 0.18, 0.2, 0.16, 0, 0, 1],
+      [3.6, -0.14, 0.18, 0.2, 0.16, 0, 0, 1],
+      [4.2, 0.36, 0.46, 0.5, 0.22, 1, 0, 1],
+      [5.8, 0.36, 0.46, 0.5, 0.22, 1, 0, 1],
+      [6.4, 0.36, 0.46, -0.44, 0.14, 1, 0, 1],
+      [7.8, 0.36, 0.48, 0.36, 0.48, 0, 0, 1],
+      [8.3, 0.02, 0.22, -0.08, 0.14, 0, -1, 1],
+      [9.5, 0.02, 0.22, -0.08, 0.14, 0, -1, 1],
+      [10.6, 0.36, 0.5, 0.52, 0.28, 0, 0, -1],
+      [11.3, 0.36, 0.5, 0.52, 0.28, 0, 0, -1],
+      [11.9, 0.36, 0.46, 0.36, 0.46, 0.5, 0, 1],
+      [12.6, 0.36, 0.46, 0.05, -0.34, 1, 0, 1],
+      [13.35, 0.36, 0.46, 0.05, -0.34, 1, 0, 1],
+      [13.9, 0.36, 0.46, 0.32, 0.16, 0, 0.2, 1],
+      [14.45, -0.06, -0.5, 0.36, 0.46, 1, 0.7, 1],
+      [LOBBY_CLIP, -0.06, -0.5, 0.36, 0.46, 1, 0.7, 1],
+    ]),
+  );
+  drawPerformer(ctx, w * (wide ? 0.32 : 0.28), waist, s, left, "stripes", 1);
+  drawPerformer(ctx, w * (wide ? 0.68 : 0.72), waist, s, right, "dots", -1);
+}
 
-  for (const side of [-1, 1]) {
-    for (let column = 0; column < 6; column += 1) {
-      const z = 2.2 + column * 1.7;
-      if (z < cam + 0.9) continue;
-      const foot = project(side * 1.15, 1.15, z);
-      const cap = project(side * 1.15, -1.25, z);
-      if (foot.depth > 10 || foot.depth < 0.9) continue;
-      const thickness = Math.min(42, Math.max(6, 70 / foot.depth));
-      ctx.fillStyle = "#efe6d6";
-      ctx.fillRect(foot.x - thickness / 2, cap.y, thickness, foot.y - cap.y);
-      ctx.fillStyle = "#d8c7a4";
-      ctx.fillRect(foot.x - thickness * 0.8, cap.y, thickness * 1.6, thickness * 0.35);
-    }
-  }
+function drawPerformer(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  waist: number,
+  s: number,
+  pose: LobbyPose,
+  shirt: "stripes" | "dots",
+  partner: number,
+): void {
+  const shoulderY = waist - s * 0.5;
+  const width = s * (0.1 + 0.16 * Math.abs(pose.face));
+  const flip = pose.face < 0 ? -1 : 1;
+  const headR = s * 0.15;
+  const headY = shoulderY - s * 0.28 + pose.nod * s * 0.07;
 
-  const lamp = project(0, -0.15, 6.4);
-  if (lamp.depth < 9) {
-    const glow = ctx.createRadialGradient(lamp.x, lamp.y, 4, lamp.x, lamp.y, 220 / lamp.depth);
-    glow.addColorStop(0, "rgba(255,214,140,0.95)");
-    glow.addColorStop(1, "rgba(255,214,140,0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(lamp.x, lamp.y, 220 / lamp.depth, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#f3e2bc";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(lamp.x, lamp.y, 28 / lamp.depth, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+  ctx.fillStyle = "rgba(0,0,0,0.08)";
+  ctx.beginPath();
+  ctx.ellipse(cx, waist + 8, width * 1.1, s * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-  const walkX = lerp(1.05, -0.7, ease(u));
-  const walkerZ = 6.2;
-  const body = project(walkX, 0.15, walkerZ);
-  const feet = project(walkX, 1.15, walkerZ);
-  const head = project(walkX, -0.35, walkerZ);
-  if (body.depth < 8 && body.depth > 1.1) {
-    ctx.strokeStyle = "#1b1814";
-    ctx.lineWidth = Math.min(10, Math.max(3, 18 / body.depth));
-    ctx.beginPath();
-    ctx.moveTo(head.x, head.y);
-    ctx.lineTo(feet.x, feet.y);
-    ctx.moveTo(body.x, body.y);
-    ctx.lineTo(body.x + Math.sin(time * 3) * 18, feet.y);
-    ctx.stroke();
+  ctx.fillStyle = "#1b1814";
+  ctx.beginPath();
+  ctx.ellipse(cx, headY - headR * 0.15, headR * 1.05, headR * 1.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#e6c2a4";
+  ctx.beginPath();
+  ctx.ellipse(cx, headY, headR * (0.55 + 0.45 * Math.abs(pose.face)), headR, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (pose.face < -0.4) {
     ctx.fillStyle = "#1b1814";
     ctx.beginPath();
-    ctx.arc(head.x, head.y, Math.max(4, 16 / head.depth), 0, Math.PI * 2);
+    ctx.ellipse(cx, headY, headR * 0.95, headR, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "#c4a574";
+  } else if (pose.face > 0.4) {
+    const eye = partner * pose.look * headR * 0.16;
+    ctx.fillStyle = "#1b1814";
     ctx.beginPath();
-    ctx.moveTo(head.x, head.y + 8);
-    ctx.lineTo(feet.x + 10, feet.y);
-    ctx.stroke();
+    ctx.ellipse(cx - headR * 0.32 + eye, headY - headR * 0.02, headR * 0.13, headR * 0.08, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + headR * 0.32 + eye, headY - headR * 0.02, headR * 0.13, headR * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  const doorL = project(-0.45, -0.9, 11);
-  const doorR = project(0.45, -0.9, 11);
-  const doorB = project(0.45, 1.15, 11);
-  if (doorL.depth < 12) {
-    ctx.strokeStyle = "rgba(220,235,255,0.85)";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(doorL.x, doorL.y, doorR.x - doorL.x, doorB.y - doorL.y);
+  const top = shoulderY - s * 0.02;
+  const torsoH = waist - top;
+  ctx.fillStyle = shirt === "stripes" ? "#f4efe6" : "#243044";
+  ctx.fillRect(cx - width, top, width * 2, torsoH);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(cx - width, top, width * 2, torsoH);
+  ctx.clip();
+  if (shirt === "stripes") {
+    ctx.fillStyle = "#1b1814";
+    const stripe = Math.max(4, width * 0.22);
+    for (let x = cx - width; x < cx + width; x += stripe * 2) ctx.fillRect(x, top, stripe, torsoH);
+  } else {
+    ctx.fillStyle = "#d5dbe3";
+    const step = Math.max(7, width * 0.28);
+    for (let y = top + step; y < waist; y += step) {
+      for (let x = cx - width + step / 2; x < cx + width; x += step) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
+  ctx.restore();
+
+  const arm = (localX: number, localY: number, shoulderSide: number) => {
+    const sx = cx + shoulderSide * width * 0.82;
+    const hx = cx + flip * localX * s;
+    const hy = shoulderY + localY * s;
+    const ex = (sx + hx) / 2;
+    const ey = (shoulderY + hy) / 2 + Math.max(0, localY - 0.2) * s * 0.12;
+    ctx.strokeStyle = "#e6c2a4";
+    ctx.lineWidth = Math.max(4, s * 0.042);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(sx, shoulderY);
+    ctx.quadraticCurveTo(ex, ey, hx, hy);
+    ctx.stroke();
+    ctx.fillStyle = "#e6c2a4";
+    ctx.beginPath();
+    ctx.arc(hx, hy, Math.max(4, s * 0.035), 0, Math.PI * 2);
+    ctx.fill();
+    if (localY < -0.2) {
+      ctx.strokeStyle = "#1b1814";
+      ctx.lineWidth = Math.max(3, s * 0.025);
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      ctx.lineTo(hx + flip * s * 0.03, hy - s * 0.1);
+      ctx.stroke();
+    }
+    if (pose.nod < -0.45 && shoulderSide > 0) {
+      ctx.fillStyle = "#1b1814";
+      ctx.fillRect(hx - s * 0.03, hy - s * 0.02, s * 0.07, s * 0.045);
+    }
+  };
+  arm(pose.lx, pose.ly, -1);
+  arm(pose.rx, pose.ry, 1);
 }
 
 export function drawSceneCaption(ctx: CanvasRenderingContext2D, text: string): void {

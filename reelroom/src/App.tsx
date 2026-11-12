@@ -110,7 +110,7 @@ export function App() {
     canvas.height = size.height;
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
-    const posterAt = plan.formatId === "ozil-goal" || plan.formatId === "hotel-lobby" ? plan.duration * 0.62 : 0.45;
+    const posterAt = plan.formatId === "ozil-goal" ? plan.duration * 0.62 : plan.formatId === "hotel-lobby" ? plan.duration * 0.06 : 0.45;
     void loadFonts().then(() => {
       if (canvasRef.current === canvas) drawFrame(ctx, plan, posterAt);
     });
