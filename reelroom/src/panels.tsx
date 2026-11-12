@@ -8,7 +8,7 @@ export function TrendBoard({ active, onPick }: { active: string; onPick: (id: st
       <p className="kicker">November 2026 formats</p>
       <h1>Trends you can film today.</h1>
       <p className="lede">
-        These are the shapes that kept showing up in public TikTok roundups this month: result first, wrong then right,
+        AI Özil goal plays the touch, the curl, and the net. Hotel lobby walks the marble. The other cards are caption shapes: result first, wrong then right,
         the exact sentence, a before/after flash, three stacked versions, a chart people save, impatience comedy, a
         cringe confession, one idea per frame, and a single question answered without a fake number.
       </p>
